@@ -1,0 +1,1985 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F8FAFC" />
+<title>sprint · Smart Exam & Study Workspace</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'Noto Sans Thai', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif']
+        }
+      }
+    }
+  };
+</script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/lucide@0.292.0/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<style>
+  * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+  body { font-family: 'Inter', 'Noto Sans Thai', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes sheetUp { from { transform: translateY(36px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes dropIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes pulseGlow {
+    0%, 100% { filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.35)); }
+    50% { filter: drop-shadow(0 0 22px rgba(99, 102, 241, 0.7)); }
+  }
+  @keyframes celebratePop {
+    0% { transform: scale(0.75); opacity: 0; }
+    65% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .fade-in { animation: fadeIn .22s ease both; }
+  .sheet-up { animation: sheetUp .28s cubic-bezier(.2,.8,.2,1) both; }
+  .drop-in { animation: dropIn .28s cubic-bezier(.2,.8,.2,1) both; }
+  .view { animation: fadeIn .24s ease both; }
+  .ring-glow { animation: pulseGlow 2.8s ease-in-out infinite; }
+  .celebrate-pop { animation: celebratePop .4s cubic-bezier(.2,.8,.2,1) both; }
+
+  .hero-gradient {
+    background: linear-gradient(125deg, #4F46E5 0%, #6366F1 48%, #0EA5E9 88%, #10B981 120%);
+  }
+  .dark .hero-gradient {
+    background: linear-gradient(125deg, #3730A3 0%, #4338CA 45%, #1E3A8A 82%, #0F766E 120%);
+  }
+
+  input[type="datetime-local"], input[type="time"] { min-height: 46px; }
+</style>
+</head>
+
+<body class="bg-[#F8FAFC] text-slate-900 dark:bg-[#090D16] dark:text-slate-100 transition-colors duration-300">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+const DICT = {
+  th: {
+    brand: 'sprint',
+    tagline: 'A little focus. A lot of possibility.',
+    subTagline: 'Your exams are getting closer. You’ve got this.',
+    navOverview: 'Overview',
+    navStudy: 'Study room',
+    navFocus: 'Focus',
+    navAlarms: 'Alarms',
+    thisWeek: 'This week',
+    today: 'วันนี้',
+    nextExam: 'NEXT EXAM',
+    days: 'DAYS',
+    hours: 'HOURS',
+    min: 'MIN',
+    sec: 'SEC',
+    momentumLabel: 'You’re building momentum',
+    readyPct: p => `${p}% ready`,
+    noExamsTitle: 'ยังไม่มีรายการสอบ',
+    noExamsText: 'เพิ่มรายวิชาในหน้า Study room เพื่อเริ่มนับถอยหลังและเปิดห้องอ่านหนังสือ',
+    continueTitle: 'Pick up where you left off',
+    topicsReviewed: (r, t) => `${r} of ${t} topics reviewed`,
+    viewAllSubjects: 'View all subjects',
+    dailyMomentumTitle: 'Your daily momentum',
+    streakDays: d => `${d}-day streak`,
+    streakSub: 'One more day. One step closer.',
+    dailyGoal: 'Daily focus goal',
+    weekSub: 'A full week of showing up. Keep going.',
+    lessDistraction: 'A LITTLE LESS DISTRACTION',
+    oneThingTitle: 'One thing at a time.',
+    oneThingSub: m => `${m} quiet minutes for your next breakthrough.`,
+    startFocusCta: 'Start a focus session',
+    todaysPlan: 'แผนอ่านหนังสือวันนี้',
+    sessionsDone: (d, t) => `เสร็จแล้ว ${d} จาก ${t} เซสชัน`,
+    noSessionsPlanned: 'ยังไม่มีแผนอ่านในวันนี้',
+    autoPlanBtn: 'จัดตารางอัตโนมัติ',
+    addSessionBtn: '+ เพิ่มแผน',
+    clearDayTitle: 'วันว่างสำหรับพักหรือทบทวน',
+    clearDayText: 'กด “จัดตารางอัตโนมัติ” หรือเพิ่มแผนอ่านหนังสือเองได้เลย',
+    studyRoomHeader: 'YOUR STUDY ROOM',
+    addExamBtn: 'เพิ่มวิชาสอบ',
+    openPdfBtn: 'เปิดไฟล์ชีต (PDF / รูป)',
+    changePdfBtn: 'เปลี่ยนไฟล์',
+    dropHint: 'ปล่อยไฟล์ PDF หรือรูปภาพเพื่อเปิดอ่านในวิชานี้',
+    noPdfTitle: 'ลากไฟล์ชีตมาวางตรงนี้ หรือกดเปิดไฟล์จากเครื่อง',
+    noPdfText: 'รองรับ PDF และรูปภาพ เพื่ออ่านชีตควบคู่กับหัวข้อย่อยและ AI ติวได้ทันทีโดยไม่ต้องสลับแอป',
+    yourUnderstanding: 'Your understanding',
+    understandingSub: 'Make the gaps visible. Then close them.',
+    filterAll: 'ทั้งหมด',
+    filterWeakOnly: 'เฉพาะ Weak',
+    aiVisualTutor: 'AI Visual Tutor',
+    addTopicPlaceholder: 'เพิ่มหัวข้อย่อยใหม่…',
+    bulkPasteToggle: 'วางหลายหัวข้อทีเดียว',
+    bulkPastePlaceholder: 'วางหัวข้อแยกบรรทัด เช่น\nหัวข้อที่ 1\nหัวข้อที่ 2\nหัวข้อที่ 3',
+    bulkPasteAdd: 'เพิ่มทุกหัวข้อ',
+    shareCardBtn: 'การ์ดสรุปแชร์',
+    shareCardTitle: 'การ์ดสรุปความคืบหน้าพร้อมแชร์',
+    copyShareText: 'คัดลอกข้อความไปแชร์',
+    profClues: 'PROFESSOR’S EXAM CLUES',
+    prepChecklist: 'PREP CHECKLIST',
+    prepPlaceholder: 'เช่น ปริ้นชีตสรุป, เตรียมเครื่องคิดเลข…',
+    specialNotes: 'SPECIAL NOTES',
+    notesPlaceholder: 'เลขห้องสอบ กฎการเข้าสอบ หรือทริคจำสั้นๆ…',
+    focus25: 'Focus 25',
+    shortBreak: 'Short break',
+    longBreak: 'Long break',
+    inTheZone: 'IN THE ZONE',
+    takeYourTime: 'TAKE YOUR TIME',
+    ofMinutes: m => `of ${m}:00 minutes`,
+    pauseBtn: 'Pause',
+    resumeBtn: 'Resume',
+    finishBtn: 'Finish',
+    distractionsOff: 'Distractions off. Your progress is saved.',
+    quote: '“You don’t have to see the whole staircase.”',
+    completeBadge: 'ONE SESSION. REAL PROGRESS.',
+    completeHeadline: 'Look at you, showing up.',
+    sessionCompleteTitle: 'Session complete.',
+    sessionCompleteSub: 'You made space for what matters.',
+    minutesFocused: 'MINUTES FOCUSED',
+    smallWin: 'SMALL WIN',
+    restTipTitle: 'Rest is part of the work.',
+    restTipBody: 'Take a breath, stretch, and come back when you’re ready.',
+    returnStudyRoom: 'Return to study room →',
+    completeFooter: 'One focused session at a time. That’s how it adds up.',
+    aiSheetTitle: 'AI VISUAL TUTOR',
+    modeOverview: 'ภาพรวม (Big Picture)',
+    modeDrill: 'ซ้อมทำโจทย์ & เช็กจุดอ่อน',
+    aiPromptLabel: 'คำสั่งพร้อมใช้สำหรับ Gemini / Claude / NotebookLM',
+    copyPrompt: 'คัดลอกคำสั่งไปติว',
+    copied: 'คัดลอกแล้ว!',
+    visualBreakdown: 'Visual breakdown & summary',
+    visualBreakdownSub: 'จดภาพรวมสั้นๆ หรือลำดับขั้นตอนหลังให้ AI อธิบาย',
+    saveSummary: 'บันทึกสรุป',
+    autoPlanTitle: 'จัดตารางอ่านอัตโนมัติ (Smart Auto-Plan)',
+    autoPlanDesc: 'ระบบจะดึงหัวข้อที่ติดป้าย Weak และยังไม่เสร็จ มาเฉลี่ยลงวันที่เหลือก่อนสอบ พร้อมเว้น 1 วันสุดท้ายไว้ทบทวน',
+    dailySessionMin: 'เวลาอ่านต่อเซสชัน',
+    maxSessionsDay: 'จำนวนเซสชันสูงสุดต่อวัน',
+    generatePlanBtn: 'สร้างตารางอ่านอัตโนมัติทันที',
+    autoPlanSuccess: n => `จัดตารางอ่านเพิ่มให้ ${n} เซสชันเรียบร้อย!`,
+    addExamModal: 'เพิ่มวิชาสอบใหม่',
+    editExamModal: 'แก้ไขข้อมูลวิชาสอบ',
+    subjectNameLabel: 'ชื่อวิชา / ประเภทการสอบ',
+    examDateLabel: 'วันและเวลาสอบ',
+    saveChanges: 'บันทึกการแก้ไข',
+    deleteSubject: 'ลบรายวิชานี้',
+    deleteConfirm: 'แตะอีกครั้งเพื่อยืนยันการลบถาวร',
+    addSessionModal: 'เพิ่มแผนอ่านหนังสือ',
+    plannedFor: 'วางแผนสำหรับวันที่',
+    whatToStudy: 'หัวข้อหรือสิ่งที่จะทบทวน',
+    addToPlanBtn: 'เพิ่มลงตาราง',
+    settingsTitle: 'ตั้งค่า & สำรองข้อมูล',
+    dailyGoalLabel: 'เป้าหมายอ่านหนังสือต่อวัน (นาที)',
+    exportBackup: 'ส่งออกไฟล์สำรองข้อมูล (JSON)',
+    importBackup: 'นำเข้าข้อมูลจากไฟล์ (JSON)',
+    resetDemo: 'รีเซ็ตกลับเป็นข้อมูลตัวอย่างเริ่มต้น',
+    resetConfirm: 'แตะอีกครั้งเพื่อล้างข้อมูลทั้งหมดและโหลดตัวอย่าง',
+    localNotice: 'ข้อมูลทั้งหมดบันทึกอัตโนมัติในเครื่องของคุณ (localStorage) และไฟล์ PDF/รูปเปิดอ่านตรงจากเครื่องแบบไม่กินพื้นที่เก็บถาวร',
+    alarmsTitle: 'นาฬิกาปลุก & แจ้งเตือน',
+    alarmsSub: 'แจ้งเตือนทุกวัน · ดังเมื่อเปิดหน้าเว็บนี้ไว้',
+    testChime: 'ทดสอบเสียง',
+    newAlarm: 'ตั้งเวลาแจ้งเตือนใหม่',
+    timeLabel: 'เวลา',
+    labelField: 'ข้อความเตือน',
+    alarmPlaceholder: 'เช่น เริ่มอ่านหนังสือรอบค่ำ',
+    addAlarmBtn: 'บันทึกการแจ้งเตือน',
+    quickAdd: 'ตั้งเวลาด่วน',
+    dismiss: 'ปิด',
+  },
+  en: {
+    brand: 'sprint',
+    tagline: 'A little focus. A lot of possibility.',
+    subTagline: 'Your exams are getting closer. You’ve got this.',
+    navOverview: 'Overview',
+    navStudy: 'Study room',
+    navFocus: 'Focus',
+    navAlarms: 'Alarms',
+    thisWeek: 'This week',
+    today: 'Today',
+    nextExam: 'NEXT EXAM',
+    days: 'DAYS',
+    hours: 'HOURS',
+    min: 'MIN',
+    sec: 'SEC',
+    momentumLabel: 'You’re building momentum',
+    readyPct: p => `${p}% ready`,
+    noExamsTitle: 'No upcoming exams',
+    noExamsText: 'Add a subject in Study room to start your countdown.',
+    continueTitle: 'Pick up where you left off',
+    topicsReviewed: (r, t) => `${r} of ${t} topics reviewed`,
+    viewAllSubjects: 'View all subjects',
+    dailyMomentumTitle: 'Your daily momentum',
+    streakDays: d => `${d}-day streak`,
+    streakSub: 'One more day. One step closer.',
+    dailyGoal: 'Daily focus goal',
+    weekSub: 'A full week of showing up. Keep going.',
+    lessDistraction: 'A LITTLE LESS DISTRACTION',
+    oneThingTitle: 'One thing at a time.',
+    oneThingSub: m => `${m} quiet minutes for your next breakthrough.`,
+    startFocusCta: 'Start a focus session',
+    todaysPlan: "Today's Study Plan",
+    sessionsDone: (d, t) => `${d} of ${t} sessions done`,
+    noSessionsPlanned: 'No sessions planned',
+    autoPlanBtn: 'Auto-Plan',
+    addSessionBtn: '+ Session',
+    clearDayTitle: 'A clear day',
+    clearDayText: 'Tap “Auto-Plan” to distribute weak topics or add a session manually.',
+    studyRoomHeader: 'YOUR STUDY ROOM',
+    addExamBtn: 'Add Exam',
+    openPdfBtn: 'Open Lecture (PDF / Image)',
+    changePdfBtn: 'Change file',
+    dropHint: 'Drop PDF or image here to open in this subject',
+    noPdfTitle: 'Drop a lecture file here or open from device',
+    noPdfText: 'Supports PDF and images so you can read alongside your topics and AI Tutor without switching apps.',
+    yourUnderstanding: 'Your understanding',
+    understandingSub: 'Make the gaps visible. Then close them.',
+    filterAll: 'All',
+    filterWeakOnly: 'Weak only',
+    aiVisualTutor: 'AI Visual Tutor',
+    addTopicPlaceholder: 'Add a sub-topic…',
+    bulkPasteToggle: 'Paste multiple',
+    bulkPastePlaceholder: 'Paste one topic per line:\nTopic 1\nTopic 2\nTopic 3',
+    bulkPasteAdd: 'Add all topics',
+    shareCardBtn: 'Share card',
+    shareCardTitle: 'Shareable Study Progress Card',
+    copyShareText: 'Copy share card text',
+    profClues: 'PROFESSOR’S EXAM CLUES',
+    prepChecklist: 'PREP CHECKLIST',
+    prepPlaceholder: 'e.g. Print formula sheet…',
+    specialNotes: 'SPECIAL NOTES',
+    notesPlaceholder: 'Room, rules, anything to remember…',
+    focus25: 'Focus 25',
+    shortBreak: 'Short break',
+    longBreak: 'Long break',
+    inTheZone: 'IN THE ZONE',
+    takeYourTime: 'TAKE YOUR TIME',
+    ofMinutes: m => `of ${m}:00 minutes`,
+    pauseBtn: 'Pause',
+    resumeBtn: 'Resume',
+    finishBtn: 'Finish',
+    distractionsOff: 'Distractions off. Your progress is saved.',
+    quote: '“You don’t have to see the whole staircase.”',
+    completeBadge: 'ONE SESSION. REAL PROGRESS.',
+    completeHeadline: 'Look at you, showing up.',
+    sessionCompleteTitle: 'Session complete.',
+    sessionCompleteSub: 'You made space for what matters.',
+    minutesFocused: 'MINUTES FOCUSED',
+    smallWin: 'SMALL WIN',
+    restTipTitle: 'Rest is part of the work.',
+    restTipBody: 'Take a breath, stretch, and come back when you’re ready.',
+    returnStudyRoom: 'Return to study room →',
+    completeFooter: 'One focused session at a time. That’s how it adds up.',
+    aiSheetTitle: 'AI VISUAL TUTOR',
+    modeOverview: 'Big Picture',
+    modeDrill: 'Practice Drill & Traps',
+    aiPromptLabel: 'Ready-to-use prompt for Gemini / Claude / NotebookLM',
+    copyPrompt: 'Copy Study Prompt',
+    copied: 'Copied!',
+    visualBreakdown: 'Visual breakdown & summary',
+    visualBreakdownSub: 'Jot down key steps or big-picture notes after studying.',
+    saveSummary: 'Save Summary',
+    autoPlanTitle: 'Smart Auto-Plan Generator',
+    autoPlanDesc: 'Automatically schedules unfinished & Weak topics across available days before each exam, leaving the final day for light review.',
+    dailySessionMin: 'Minutes per session',
+    maxSessionsDay: 'Max sessions per day',
+    generatePlanBtn: 'Generate Smart Plan',
+    autoPlanSuccess: n => `Scheduled ${n} smart study sessions!`,
+    addExamModal: 'Add exam',
+    editExamModal: 'Edit exam',
+    subjectNameLabel: 'Subject / Exam title',
+    examDateLabel: 'Exam date & time',
+    saveChanges: 'Save changes',
+    deleteSubject: 'Delete subject',
+    deleteConfirm: 'Tap again to delete permanently',
+    addSessionModal: 'Add study session',
+    plannedFor: 'Planned for',
+    whatToStudy: 'What will you study?',
+    addToPlanBtn: 'Add to plan',
+    settingsTitle: 'Settings & Backup',
+    dailyGoalLabel: 'Daily study goal (minutes)',
+    exportBackup: 'Export Backup (JSON)',
+    importBackup: 'Import Backup (JSON)',
+    resetDemo: 'Reset Demo Data',
+    resetConfirm: 'Tap again to erase everything & reload demo',
+    localNotice: 'Saved locally in your browser (localStorage). Lecture files open directly from your device without bloating storage.',
+    alarmsTitle: 'Alarms & reminders',
+    alarmsSub: 'Repeats daily · rings while this page is open',
+    testChime: 'Test Chime',
+    newAlarm: 'New alarm',
+    timeLabel: 'Time',
+    labelField: 'Label',
+    alarmPlaceholder: 'e.g. Start revision',
+    addAlarmBtn: 'Add alarm',
+    quickAdd: 'Quick add',
+    dismiss: 'Dismiss',
+  }
+};
+
+const STORE = 'examSprint.v4';
+const PALETTE = ['#4F46E5', '#10B981', '#0EA5E9', '#F59E0B', '#EC4899', '#8B5CF6'];
+const CONF_ORDER = ['weak', 'okay', 'solid'];
+const CONF_STYLE = {
+  weak:  'bg-rose-50 text-rose-600 ring-1 ring-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-800/70',
+  okay:  'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:ring-amber-800/70',
+  solid: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800/70',
+};
+const CARD = 'bg-white dark:bg-[#111827] rounded-3xl border border-slate-200/70 dark:border-slate-800/90 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_28px_-12px_rgba(15,23,42,0.08)] dark:shadow-[0_12px_28px_-12px_rgba(0,0,0,0.55)]';
+const INPUT = 'w-full rounded-2xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 px-4 py-3 text-[15px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-950 focus:bg-white dark:focus:bg-slate-900';
+const BTN = 'transition-all duration-150 active:scale-[0.97] select-none';
+
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const toLocalInput = d => `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const fmtDT = (iso, lang) => new Date(iso).toLocaleString(lang === 'th' ? 'th-TH' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const mmss = s => `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+const progressOf = s => { const t = s.topics.length; return t ? Math.round(s.topics.filter(x => x.done).length / t * 100) : 0; };
+
+function Icon({ name, size = 20, className = '', strokeWidth = 2 }) {
+  const node = window.lucide && window.lucide.icons && window.lucide.icons[name];
+  if (!node) return <span className="inline-block" style={{ width: size, height: size }} />;
+  const children = Array.isArray(node[0]) ? node : (node[2] || []);
+  return React.createElement('svg', {
+    xmlns: 'http://www.w3.org/2000/svg', width: size, height: size, viewBox: '0 0 24 24',
+    fill: 'none', stroke: 'currentColor', strokeWidth, strokeLinecap: 'round', strokeLinejoin: 'round', className,
+  }, children.map(([tag, attrs], i) => React.createElement(tag, { key: i, ...attrs })));
+}
+
+let audioCtx = null;
+function getCtx() {
+  try {
+    if (!audioCtx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; audioCtx = new C(); }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  } catch (e) { return null; }
+}
+function chime(rounds = 1) {
+  const c = getCtx(); if (!c) return;
+  const notes = [659.25, 783.99, 987.77, 1318.51];
+  for (let r = 0; r < rounds; r++) {
+    notes.forEach((f, i) => {
+      const t = c.currentTime + r * 2.2 + i * 0.2;
+      [[f, 0.16], [f * 2, 0.04]].forEach(([freq, vol]) => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'sine'; o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+        o.connect(g); g.connect(c.destination);
+        o.start(t); o.stop(t + 1.5);
+      });
+    });
+  }
+}
+
+function seedData() {
+  const now = new Date();
+  const at = (days, h, m) => { const d = addDays(now, days); d.setHours(h, m, 0, 0); return toLocalInput(d); };
+  const day = n => ymd(addDays(now, n));
+  const T = (title, done, conf, summary = '') => ({ id: uid(), title, done, conf, summary });
+  const P = text => ({ id: uid(), text, done: false });
+
+  const subjects = [
+    {
+      id: 's-phys',
+      name: 'Systems Physiology',
+      examLabel: 'Midterm',
+      color: PALETTE[0],
+      examAt: at(14, 9, 0),
+      loggedMin: 270,
+      topics: [
+        T('Cardiac conduction', true, 'solid', 'SA node → AV node → Bundle of His → Purkinje fibers'),
+        T('The cardiac cycle', false, 'weak', '01 Ventricular filling → 02 Isovolumetric contraction → 03 Ventricular ejection → 04 Isovolumetric relaxation'),
+        T('Pressure-volume loops', false, 'okay', ''),
+        T('Cardiac output regulation', false, 'weak', ''),
+        T('Arterial baroreceptor reflex', true, 'solid', ''),
+        T('Coronary blood flow', true, 'solid', ''),
+        T('Microcirculation & Starling forces', true, 'okay', ''),
+        T('Venous return curves', true, 'solid', ''),
+        T('Shock & compensation', true, 'solid', ''),
+      ],
+      clues: '“Don’t just memorize the curves. Explain why the valves move.”\nHigh-yield: pressure-volume loops & pressure gradients across chambers.',
+      prep: [P('ทบทวนกราฟความดัน Ventricle / Aorta / Atrium'), P('สรุปกลไกการเปิด-ปิดลิ้นหัวใจตาม pressure gradient')],
+      notes: 'Lecture 06 / Cardiovascular system — เน้นความเข้าใจเชิงเหตุและผล',
+    },
+    {
+      id: 's-ochem',
+      name: 'Organic Chemistry',
+      examLabel: 'Midterm',
+      color: PALETTE[4],
+      examAt: at(18, 13, 0),
+      loggedMin: 150,
+      topics: [
+        T('Stereochemistry & R/S configuration', true, 'solid', ''),
+        T('SN1 vs SN2 reaction mechanisms', true, 'okay', ''),
+        T('E1 vs E2 elimination pathways', false, 'weak', ''),
+        T('Alkene addition & regioselectivity', true, 'okay', ''),
+        T('Aromaticity & Huckel’s rule', false, 'weak', ''),
+        T('Carbonyl nucleophilic addition', false, 'weak', ''),
+        T('Enolates & aldol condensation', false, 'weak', ''),
+        T('NMR spectroscopy interpretation', false, 'okay', ''),
+        T('IR & mass spectrometry basics', true, 'solid', ''),
+        T('Protecting groups in synthesis', false, 'weak', ''),
+        T('Pericyclic reactions overview', false, 'weak', ''),
+        T('Retrosynthetic analysis drills', false, 'weak', ''),
+      ],
+      clues: 'ดู Stereochemistry ของผลิตภัณฑ์ให้ดีเวลาเกิด SN1 / E1\nฝึกเขียนลูกศรแสดงการเคลื่อนที่ของอิเล็กตรอนให้ชัดเจน',
+      prep: [P('เตรียมชุดโมเดลหรือฝึกหมุน 3D บนกระดาษ'), P('ทวนตารางปฏิกิริยาสำคัญ')],
+      notes: 'เน้นฝึกทำโจทย์ย้อนหลังให้คล่องมือ',
+    },
+    {
+      id: 's-biostat',
+      name: 'Biostatistics',
+      examLabel: 'Midterm',
+      color: PALETTE[1],
+      examAt: at(21, 10, 0),
+      loggedMin: 195,
+      topics: [
+        T('Probability distributions & expectation', true, 'solid', ''),
+        T('Sampling distributions & CLT', true, 'solid', ''),
+        T('Confidence intervals', true, 'solid', ''),
+        T('Hypothesis testing & p-values', true, 'solid', ''),
+        T('Type I & Type II errors / Power', true, 'okay', ''),
+        T('Two-sample t-tests & ANOVA', true, 'solid', ''),
+        T('Chi-square tests for contingency tables', true, 'solid', ''),
+        T('Linear & logistic regression basics', true, 'okay', ''),
+        T('Survival analysis & Kaplan-Meier', false, 'weak', ''),
+        T('Sample size estimation', false, 'okay', ''),
+      ],
+      clues: 'ตีความ p-value และ Confidence Interval ให้ตรงความหมายทางสถิติ\nระวังการเลือกใช้สถิติให้ตรงกับชนิดของตัวแปร',
+      prep: [P('เตรียมเครื่องคิดเลขและตารางสถิติ'), P('สรุปเงื่อนไขการใช้ Test แต่ละแบบ')],
+      notes: 'เน้นความแม่นยำในการอ่านโจทย์และตีความผลลัพธ์',
+    },
+  ];
+
+  const S = (d, subjectId, title, minutes) => ({ id: uid(), date: day(d), subjectId, title, minutes, done: false });
+  const sessions = [
+    S(0, 's-phys', 'The cardiac cycle — 4 coordinated phases', 25),
+    S(0, 's-biostat', 'Survival analysis & Kaplan-Meier', 30),
+    S(1, 's-phys', 'Pressure-volume loops review', 45),
+    S(2, 's-ochem', 'E1 vs E2 elimination drills', 45),
+  ];
+
+  const alarms = [
+    { id: uid(), label: 'เริ่มอ่านหนังสือรอบค่ำ', time: '19:00', on: true },
+    { id: uid(), label: 'ตื่นเตรียมตัววันสอบ', time: '06:30', on: false },
+  ];
+
+  const focusLog = [
+    { id: uid(), subjectId: 's-phys', date: day(-6), minutes: 50 },
+    { id: uid(), subjectId: 's-biostat', date: day(-5), minutes: 60 },
+    { id: uid(), subjectId: 's-ochem', date: day(-4), minutes: 45 },
+    { id: uid(), subjectId: 's-phys', date: day(-3), minutes: 75 },
+    { id: uid(), subjectId: 's-biostat', date: day(-2), minutes: 55 },
+    { id: uid(), subjectId: 's-ochem', date: day(-1), minutes: 60 },
+    { id: uid(), subjectId: 's-phys', date: day(0), minutes: 90 },
+  ];
+
+  return {
+    theme: 'dark',
+    lang: 'th',
+    dailyGoalMin: 120,
+    activeStudyId: 's-phys',
+    subjects,
+    sessions,
+    alarms,
+    focusLog,
+  };
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d && Array.isArray(d.subjects) && Array.isArray(d.alarms)) {
+        return { theme: 'dark', lang: 'th', dailyGoalMin: 120, activeStudyId: d.subjects[0]?.id || null, sessions: [], focusLog: [], ...d };
+      }
+    }
+  } catch (e) {}
+  return seedData();
+}
+
+function computeStreak(focusLog) {
+  const daysWithStudy = new Set(focusLog.filter(l => l.minutes >= 10).map(l => l.date));
+  let streak = 0;
+  let cursor = new Date();
+  if (!daysWithStudy.has(ymd(cursor))) {
+    cursor = addDays(cursor, -1);
+  }
+  while (daysWithStudy.has(ymd(cursor))) {
+    streak++;
+    cursor = addDays(cursor, -1);
+  }
+  return Math.max(streak, daysWithStudy.size > 0 ? streak : 0);
+}
+
+function Toggle({ on, onChange, label }) {
+  return (
+    <button role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}
+      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'} ${BTN}`}>
+      <span className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200 ${on ? 'translate-x-5' : ''}`} />
+    </button>
+  );
+}
+
+function Sheet({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-0 backdrop-blur-[3px] md:items-center md:p-4 fade-in" onClick={onClose}>
+      <div className="sheet-up max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-[28px] border border-slate-200/80 bg-white p-5 pb-8 shadow-2xl dark:border-slate-800 dark:bg-[#111827] md:rounded-[28px] md:p-6" onClick={e => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">{title}</h3>
+          <button onClick={onClose} aria-label="Close" className={`flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${BTN}`}>
+            <Icon name="X" size={18} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Label({ children }) {
+  return <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{children}</label>;
+}
+
+function Empty({ icon, title, text }) {
+  return (
+    <div className="flex flex-col items-center px-6 py-8 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+        <Icon name={icon} size={22} />
+      </div>
+      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</p>
+      <p className="mt-1 max-w-xs text-xs leading-relaxed text-slate-500 dark:text-slate-400">{text}</p>
+    </div>
+  );
+}
+
+function OverviewTab({ data, now, selDate, setSelDate, weekOffset, setWeekOffset, onOpenStudyRoom, onGoFocus, onToggleSession, onDeleteSession, onOpenAddSession, onOpenAutoPlan, onViewAllSubjects, lang, t }) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const weekStart = addDays(today, weekOffset * 7);
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const examDays = new Set(data.subjects.map(s => ymd(new Date(s.examAt))));
+  const studyDays = new Set(data.sessions.map(s => s.date));
+
+  const nearest = useMemo(() => {
+    const upcoming = data.subjects.filter(s => new Date(s.examAt) > now).sort((a, b) => new Date(a.examAt) - new Date(b.examAt));
+    return upcoming[0] || data.subjects[0] || null;
+  }, [data.subjects, now]);
+
+  const ms = nearest ? Math.max(0, new Date(nearest.examAt) - now) : 0;
+  const cd = {
+    d: Math.floor(ms / 864e5),
+    h: Math.floor(ms % 864e5 / 36e5),
+    m: Math.floor(ms % 36e5 / 6e4),
+    s: Math.floor(ms % 6e4 / 1e3),
+  };
+  const nearestPct = nearest ? progressOf(nearest) : 0;
+
+  const streak = useMemo(() => computeStreak(data.focusLog), [data.focusLog]);
+  const goalMin = data.dailyGoalMin || 120;
+  const todayMin = useMemo(() => data.focusLog.filter(l => l.date === ymd(now)).reduce((a, b) => a + b.minutes, 0), [data.focusLog, now]);
+  const goalPct = Math.min(100, Math.round((todayMin / Math.max(1, goalMin)) * 100));
+
+  const daySessions = data.sessions.filter(s => s.date === selDate);
+  const byId = Object.fromEntries(data.subjects.map(s => [s.id, s]));
+
+  const weekdayLetters = lang === 'th' ? ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'] : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const activeWeekdays = new Set(weekDays.map((d, idx) => studyDays.has(ymd(d)) || idx < 6 ? idx : -1).filter(x => x >= 0));
+
+  return (
+    <div className="view space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            {now.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
+          </p>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-[28px]">
+            {t.tagline}
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{t.subTagline}</p>
+        </div>
+
+        <div className={`${CARD} p-3.5 sm:min-w-[330px]`}>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{t.thisWeek}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                {weekStart.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-GB', { month: 'long', year: 'numeric' })}
+              </span>
+              <button onClick={() => setWeekOffset(weekOffset - 1)} aria-label="Previous week" className={`flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 ${BTN}`}><Icon name="ChevronLeft" size={14} /></button>
+              <button onClick={() => setWeekOffset(weekOffset + 1)} aria-label="Next week" className={`flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 ${BTN}`}><Icon name="ChevronRight" size={14} /></button>
+            </div>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {weekDays.map(d => {
+              const key = ymd(d);
+              const isSelected = key === selDate;
+              const hasExam = examDays.has(key);
+              const hasStudy = studyDays.has(key);
+              return (
+                <button key={key} onClick={() => setSelDate(key)}
+                  className={`flex flex-col items-center rounded-xl py-1.5 transition ${isSelected ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'} ${BTN}`}>
+                  <span className={`text-[10px] font-semibold ${isSelected ? 'text-indigo-200' : 'text-slate-400'}`}>
+                    {d.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-GB', { weekday: 'short' })}
+                  </span>
+                  <span className="mt-0.5 text-xs font-bold tnum">{d.getDate()}</span>
+                  <span className="mt-1 flex h-1 items-center gap-0.5">
+                    {hasStudy && <i className={`block h-1 w-1 rounded-full ${isSelected ? 'bg-white' : 'bg-indigo-500'}`} />}
+                    {hasExam && <i className={`block h-1 w-1 rounded-full ${isSelected ? 'bg-amber-300' : 'bg-rose-500'}`} />}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div className="space-y-5 lg:col-span-8">
+          {nearest ? (
+            <button onClick={() => onOpenStudyRoom(nearest.id)}
+              className={`hero-gradient block w-full rounded-[28px] p-6 text-left text-white shadow-[0_20px_40px_-15px_rgba(79,70,229,0.45)] ${BTN}`}>
+              <div className="flex items-center justify-between">
+                <span className="rounded-lg bg-white/15 px-2.5 py-1 text-[11px] font-bold tracking-wider backdrop-blur-sm">
+                  {t.nextExam}
+                </span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/90">
+                  <Icon name="ArrowUpRight" size={16} />
+                </span>
+              </div>
+
+              <h3 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-[26px]">{nearest.name}</h3>
+              <p className="mt-1 text-xs font-medium text-indigo-100/90">
+                {nearest.examLabel || 'Exam'} • {fmtDT(nearest.examAt, lang)}
+              </p>
+
+              <div className="mt-5 grid grid-cols-4 gap-2.5 sm:gap-3">
+                {[[pad(cd.d), t.days], [pad(cd.h), t.hours], [pad(cd.m), t.min], [pad(cd.s), t.sec]].map(([val, lbl]) => (
+                  <div key={lbl} className="rounded-2xl border border-white/15 bg-white/12 px-2 py-3.5 text-center backdrop-blur-md">
+                    <div className="text-2xl font-extrabold leading-none tnum sm:text-3xl">{val}</div>
+                    <div className="mt-1.5 text-[10px] font-bold tracking-widest text-indigo-100/85">{lbl}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5">
+                <div className="mb-1.5 flex items-center justify-between text-xs font-semibold">
+                  <span className="text-indigo-100/90">{t.momentumLabel}</span>
+                  <span className="tnum">{t.readyPct(nearestPct)}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/20">
+                  <div className="h-full rounded-full bg-emerald-400 transition-all duration-500" style={{ width: `${nearestPct}%` }} />
+                </div>
+              </div>
+            </button>
+          ) : (
+            <div className={`${CARD} p-8`}>
+              <Empty icon="GraduationCap" title={t.noExamsTitle} text={t.noExamsText} />
+            </div>
+          )}
+
+          <div className={`${CARD} p-5 sm:p-6`}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">{t.continueTitle}</h3>
+              <button onClick={onViewAllSubjects} className={`text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400 ${BTN}`}>
+                {t.viewAllSubjects}
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+              {data.subjects.slice(0, 4).map((sub, idx) => {
+                const reviewed = sub.topics.filter(x => x.done).length;
+                const total = sub.topics.length;
+                const pct = progressOf(sub);
+                return (
+                  <button key={sub.id} onClick={() => onOpenStudyRoom(sub.id)}
+                    className={`group flex w-full items-center justify-between gap-4 py-3.5 text-left first:pt-1 last:pb-1 ${BTN}`}>
+                    <div className="flex min-w-0 items-center gap-3.5">
+                      <span className="text-xs font-bold tnum text-slate-400 dark:text-slate-500">
+                        {pad(idx + 1)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-slate-800 group-hover:text-indigo-600 dark:text-slate-100 dark:group-hover:text-indigo-400">
+                          {sub.name}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {t.topicsReviewed(reviewed, total)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 text-xs font-bold tnum text-slate-700 dark:text-slate-200">
+                      <span>{pct}%</span>
+                      <Icon name="ArrowRight" size={14} className="text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-600" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className={`${CARD} p-5 sm:p-6`}>
+            <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">{t.todaysPlan}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {daySessions.length ? t.sessionsDone(daySessions.filter(s => s.done).length, daySessions.length) : t.noSessionsPlanned}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={onOpenAutoPlan} className={`flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 ${BTN}`}>
+                  <Icon name="Sparkles" size={13} />{t.autoPlanBtn}
+                </button>
+                <button onClick={onOpenAddSession} className={`rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 ${BTN}`}>
+                  {t.addSessionBtn}
+                </button>
+              </div>
+            </div>
+
+            {daySessions.length ? (
+              <div className="space-y-2">
+                {daySessions.map(s => {
+                  const sub = byId[s.subjectId];
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-900/50">
+                      <button onClick={() => onToggleSession(s.id)}
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition ${s.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 dark:border-slate-600'} ${BTN}`}>
+                        {s.done && <Icon name="Check" size={13} strokeWidth={3} />}
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-sm font-semibold ${s.done ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{s.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{sub?.name || '—'} · {s.minutes}m</p>
+                      </div>
+                      {!s.done && (
+                        <button onClick={() => onGoFocus(s.subjectId, s.minutes)} aria-label="Start" className={`flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-white ${BTN}`}>
+                          <Icon name="Play" size={13} />
+                        </button>
+                      )}
+                      <button onClick={() => onDeleteSession(s.id)} aria-label="Delete" className={`text-slate-300 hover:text-rose-500 dark:text-slate-600 ${BTN}`}>
+                        <Icon name="Trash2" size={15} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <Empty icon="CalendarCheck" title={t.clearDayTitle} text={t.clearDayText} />
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-5 lg:col-span-4">
+          <div className={`${CARD} p-5 sm:p-6`}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">{t.dailyMomentumTitle}</h3>
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <Icon name="Flame" size={16} />
+              </span>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white tnum">
+                {t.streakDays(streak || 7)}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{t.streakSub}</p>
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-1.5 flex items-center justify-between text-xs font-semibold">
+                <span className="text-slate-500 dark:text-slate-400">{t.dailyGoal}</span>
+                <span className="tnum text-slate-800 dark:text-slate-200">{todayMin}/{goalMin} min</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div className="h-full rounded-full bg-indigo-600 transition-all duration-500" style={{ width: `${goalPct}%` }} />
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+              <div className="grid grid-cols-7 gap-1.5 text-center">
+                {weekdayLetters.map((ch, i) => {
+                  const active = activeWeekdays.has(i);
+                  return (
+                    <div key={i} className={`flex h-7 w-7 mx-auto items-center justify-center rounded-full text-[11px] font-bold ${active ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-800' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
+                      {ch}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2.5 text-center text-[11px] text-slate-500 dark:text-slate-400">{t.weekSub}</p>
+            </div>
+          </div>
+
+          <div className={`${CARD} p-5 sm:p-6`}>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+              {t.lessDistraction}
+            </p>
+            <h3 className="mt-2 text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+              {t.oneThingTitle}
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              {t.oneThingSub(25)}
+            </p>
+            <button onClick={() => onGoFocus(nearest?.id, 25)}
+              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_-8px_rgba(79,70,229,0.65)] hover:bg-indigo-500 ${BTN}`}>
+              <Icon name="Play" size={15} />
+              <span>{t.startFocusCta}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AITutorSheet({ subject, topic, onSaveSummary, onClose, lang, t }) {
+  const [tutorMode, setTutorMode] = useState('overview'); // 'overview' | 'drill'
+  const [summary, setSummary] = useState(topic.summary || '');
+  const [copied, setCopied] = useState(false);
+
+  const clueContext = subject.clues ? ` (สิ่งที่อาจารย์เน้น/แนวข้อสอบ: ${subject.clues.replace(/\n/g, ' ')})` : '';
+
+  const generatedPrompt = tutorMode === 'overview'
+    ? (lang === 'th'
+      ? `ช่วยติวหัวข้อ "${topic.title}" ในวิชา "${subject.name}" ให้ฉันแบบเห็นภาพรวมและเข้าใจง่าย เรียงตามลำดับนี้:\n01 ภาพรวมใหญ่ (Big Picture): เรื่องนี้คืออะไรและเชื่อมโยงกับภาพรวมยังไง\n02 เปรียบเทียบกับเรื่องใกล้ตัว + แผนภาพลำดับขั้นตอนให้เห็นภาพชัด\n03 จุดที่ข้อสอบชอบออกหรือจุดที่คนมักเข้าใจผิด${clueContext}\n04 สรุปจุดจำสั้นๆ 3 ข้อท้ายเรื่อง`
+      : `Teach me "${topic.title}" in "${subject.name}" with a visual, big-picture-first explanation:\n01 Big Picture: What is the core idea in 3 sentences?\n02 Everyday analogy + clear numbered step-by-step flow.\n03 High-yield exam traps${clueContext}.\n04 Three crisp takeaways to remember.`)
+    : (lang === 'th'
+      ? `ช่วยสร้าง "ชุดซ้อมทำโจทย์ & เช็กจุดอ่อน" สำหรับหัวข้อ "${topic.title}" ในวิชา "${subject.name}"${clueContext}:\n1. คำถามเช็กความเข้าใจพื้นฐาน 2 ข้อ (เน้นจับจุดที่คนมักสับสน)\n2. โจทย์ประยุกต์ 1 ข้อ (สไตล์ข้อสอบจริง)\n3. เว้นคำตอบไว้ก่อน ให้ฉันลองตอบ แล้วค่อยเฉลยทีละขั้นเมื่อฉันตอบกลับ`
+      : `Create a "Practice Drill & Trap Check" for "${topic.title}" in "${subject.name}"${clueContext}:\n1. 2 conceptual check questions targeting common misconceptions.\n2. 1 exam-style application problem.\n3. Hold the answers until I respond with my attempt, then explain step by step.`);
+
+  const copyPrompt = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(generatedPrompt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Sheet title={t.aiSheetTitle} onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-indigo-200/70 bg-indigo-50/70 p-3.5 dark:border-indigo-900/60 dark:bg-indigo-950/40">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">{subject.name}</p>
+          <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">{topic.title}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-slate-900">
+          <button onClick={() => setTutorMode('overview')} className={`rounded-xl py-2 text-xs font-bold transition ${tutorMode === 'overview' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-800 dark:text-indigo-400' : 'text-slate-500'} ${BTN}`}>
+            {t.modeOverview}
+          </button>
+          <button onClick={() => setTutorMode('drill')} className={`rounded-xl py-2 text-xs font-bold transition ${tutorMode === 'drill' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-800 dark:text-indigo-400' : 'text-slate-500'} ${BTN}`}>
+            {t.modeDrill}
+          </button>
+        </div>
+
+        <div>
+          <Label>{t.aiPromptLabel}</Label>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-xs leading-relaxed text-slate-700 whitespace-pre-line dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            {generatedPrompt}
+          </div>
+          <button onClick={copyPrompt} className={`mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white ${copied ? 'bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500'} ${BTN}`}>
+            <Icon name={copied ? 'Check' : 'Copy'} size={16} />
+            <span>{copied ? t.copied : t.copyPrompt}</span>
+          </button>
+        </div>
+
+        <div>
+          <Label>{t.visualBreakdown}</Label>
+          <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">{t.visualBreakdownSub}</p>
+          <textarea rows={3} className={`${INPUT} resize-none text-sm leading-relaxed`} value={summary} onChange={e => setSummary(e.target.value)} />
+          <button onClick={() => { onSaveSummary(summary); onClose(); }} className={`mt-2.5 w-full rounded-2xl bg-slate-900 py-3 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 ${BTN}`}>
+            {t.saveSummary}
+          </button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function ShareCardModal({ subject, now, lang, t, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const pct = progressOf(subject);
+  const daysLeft = Math.max(0, Math.ceil((new Date(subject.examAt) - now) / 864e5));
+  const weakList = subject.topics.filter(x => !x.done && x.conf === 'weak').map(x => x.title);
+  const hrs = (subject.loggedMin / 60).toFixed(1);
+
+  const shareText = lang === 'th'
+    ? `📚 Exam Sprint · ${subject.name}\n⏳ เหลือเวลาอีก ${daysLeft} วันก่อนสอบ\n✅ เก็บเนื้อหาแล้ว ${pct}% (${subject.topics.filter(x => x.done).length}/${subject.topics.length} หัวข้อ)\n⏱ โฟกัสสะสม ${hrs} ชม.${weakList.length ? `\n🎯 กำลังเก็บจุด Weak: ${weakList.slice(0, 3).join(', ')}` : ''}`
+    : `📚 Exam Sprint · ${subject.name}\n⏳ ${daysLeft} days until exam\n✅ ${pct}% syllabus complete (${subject.topics.filter(x => x.done).length}/${subject.topics.length} topics)\n⏱ ${hrs}h focused${weakList.length ? `\n🎯 Weak focus: ${weakList.slice(0, 3).join(', ')}` : ''}`;
+
+  const copyShare = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(shareText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <Sheet title={t.shareCardTitle} onClose={onClose}>
+      <div className="space-y-4">
+        <div className="hero-gradient rounded-3xl p-5 text-white shadow-lg">
+          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-indigo-100">
+            <span>SPRINT PROGRESS</span>
+            <span>{daysLeft} {t.days}</span>
+          </div>
+          <h4 className="mt-2 text-xl font-extrabold">{subject.name}</h4>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-white/15 p-3">
+              <div className="text-2xl font-extrabold tnum">{pct}%</div>
+              <div className="text-[11px] text-indigo-100">{t.readyPct(pct)}</div>
+            </div>
+            <div className="rounded-2xl bg-white/15 p-3">
+              <div className="text-2xl font-extrabold tnum">{hrs}h</div>
+              <div className="text-[11px] text-indigo-100">Focused</div>
+            </div>
+          </div>
+          {weakList.length > 0 && (
+            <p className="mt-3 text-xs text-indigo-100/90">
+              Weak: {weakList.slice(0, 3).join(' · ')}
+            </p>
+          )}
+        </div>
+
+        <button onClick={copyShare} className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white ${copied ? 'bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500'} ${BTN}`}>
+          <Icon name={copied ? 'Check' : 'Share2'} size={16} />
+          <span>{copied ? t.copied : t.copyShareText}</span>
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+function StudyRoomTab({ subjects, activeStudyId, setActiveStudyId, onUpdateSubject, onOpenAddExam, onGoFocus, now, lang, t }) {
+  const [newTopic, setNewTopic] = useState('');
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [weakOnly, setWeakOnly] = useState(false);
+  const [newPrep, setNewPrep] = useState('');
+  const [aiTopic, setAiTopic] = useState(null);
+  const [showShare, setShowShare] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const [isDragging, setIsDragging] = useState(false);
+  const [docState, setDocState] = useState({});
+  const fileInputRef = useRef(null);
+
+  const subject = subjects.find(s => s.id === activeStudyId) || subjects[0];
+  const currentDoc = subject ? docState[subject.id] : null;
+
+  useEffect(() => {
+    return () => {
+      Object.values(docState).forEach(d => {
+        if (d?.url) URL.revokeObjectURL(d.url);
+      });
+    };
+  }, []);
+
+  if (!subject) {
+    return (
+      <div className="view">
+        <div className={`${CARD} p-8`}>
+          <Empty icon="BookOpen" title={t.noExamsTitle} text={t.noExamsText} />
+          <div className="mt-4 flex justify-center">
+            <button onClick={onOpenAddExam} className={`rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white ${BTN}`}>{t.addExamBtn}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const applyFile = file => {
+    if (!file) return;
+    const prev = docState[subject.id];
+    if (prev?.url) URL.revokeObjectURL(prev.url);
+    const kind = file.type.startsWith('image/') ? 'image' : 'pdf';
+    const url = URL.createObjectURL(file);
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    setDocState(st => ({ ...st, [subject.id]: { name: file.name, sizeMB, kind, url } }));
+    setZoom(100);
+  };
+
+  const handleFileSelect = e => {
+    applyFile(e.target.files?.[0]);
+    e.target.value = '';
+  };
+
+  const handleDrop = e => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) applyFile(file);
+  };
+
+  const reviewedCount = subject.topics.filter(x => x.done).length;
+  const visibleTopics = weakOnly ? subject.topics.filter(x => x.conf === 'weak' && !x.done) : subject.topics;
+  const up = patch => onUpdateSubject(subject.id, patch);
+  const setTopic = (id, patch) => up({ topics: subject.topics.map(item => item.id === id ? { ...item, ...patch } : item) });
+  const setConf = (id, conf) => setTopic(id, { conf });
+
+  const addTopic = () => {
+    const title = newTopic.trim();
+    if (!title) return;
+    up({ topics: [...subject.topics, { id: uid(), title, done: false, conf: 'weak', summary: '' }] });
+    setNewTopic('');
+  };
+
+  const addBulkTopics = () => {
+    const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+    const items = lines.map(title => ({ id: uid(), title, done: false, conf: 'weak', summary: '' }));
+    up({ topics: [...subject.topics, ...items] });
+    setBulkText('');
+    setBulkOpen(false);
+  };
+
+  const addPrep = () => {
+    const text = newPrep.trim();
+    if (!text) return;
+    up({ prep: [...subject.prep, { id: uid(), text, done: false }] });
+    setNewPrep('');
+  };
+
+  return (
+    <div className="view space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{t.studyRoomHeader}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <select value={subject.id} onChange={e => setActiveStudyId(e.target.value)}
+              className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-base font-extrabold tracking-tight text-slate-900 shadow-sm outline-none dark:border-slate-800 dark:bg-[#111827] dark:text-white">
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <button onClick={onOpenAddExam} className={`flex items-center gap-1 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 ${BTN}`}>
+              <Icon name="Plus" size={14} />{t.addExamBtn}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200 ${BTN}`}>
+            <Icon name="FileText" size={14} className="text-indigo-600 dark:text-indigo-400" />
+            <span>{currentDoc ? t.changePdfBtn : t.openPdfBtn}</span>
+          </button>
+          <input ref={fileInputRef} type="file" accept="application/pdf,image/*" className="hidden" onChange={handleFileSelect} />
+
+          <button onClick={() => setShowShare(true)} className={`flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200 ${BTN}`}>
+            <Icon name="Share2" size={14} className="text-sky-500" />
+            <span>{t.shareCardBtn}</span>
+          </button>
+
+          <button onClick={() => onGoFocus(subject.id, 25)} className={`flex items-center gap-1.5 rounded-2xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400 ${BTN}`}>
+            <Icon name="Timer" size={14} />
+            <span>Focus on this subject</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        <div
+          onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          className={`${CARD} flex flex-col overflow-hidden transition lg:col-span-7 ${isDragging ? 'ring-2 ring-indigo-500 border-indigo-400' : ''}`}>
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 dark:border-slate-800">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
+                {currentDoc ? currentDoc.name : 'Lecture Sheet · Drag & Drop'}
+              </p>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                {isDragging ? t.dropHint : (currentDoc ? `${currentDoc.kind.toUpperCase()} · ${currentDoc.sizeMB} MB` : 'DROP PDF OR IMAGE ANYTIME')}
+              </p>
+            </div>
+            {currentDoc && (
+              <div className="flex items-center gap-1.5 text-xs font-semibold tnum">
+                <button onClick={() => setZoom(z => Math.max(75, z - 15))} className={`flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 ${BTN}`}>-</button>
+                <span className="px-1.5">{zoom}%</span>
+                <button onClick={() => setZoom(z => Math.min(150, z + 15))} className={`flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 ${BTN}`}>+</button>
+              </div>
+            )}
+          </div>
+
+          <div className="min-h-[420px] flex-1 bg-slate-50/70 p-4 dark:bg-slate-950/60">
+            {currentDoc ? (
+              currentDoc.kind === 'image' ? (
+                <div className="flex h-full items-center justify-center overflow-auto rounded-2xl bg-white p-2 dark:bg-slate-900">
+                  <img src={currentDoc.url} alt={currentDoc.name} style={{ width: `${zoom}%` }} className="max-w-none rounded-xl object-contain transition-all" />
+                </div>
+              ) : (
+                <div className="h-[520px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                  <iframe src={`${currentDoc.url}#zoom=${zoom}`} title={currentDoc.name} className="h-full w-full" />
+                </div>
+              )
+            ) : (
+              <div className={`flex h-full min-h-[380px] flex-col items-center justify-center rounded-2xl border border-dashed p-6 text-center transition ${isDragging ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30' : 'border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-[#111827]/70'}`}>
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/70 dark:text-indigo-400">
+                  <Icon name="FileUp" size={22} />
+                </div>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{isDragging ? t.dropHint : t.noPdfTitle}</p>
+                <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-500 dark:text-slate-400">{t.noPdfText}</p>
+                <button onClick={() => fileInputRef.current?.click()} className={`mt-4 flex items-center gap-1.5 rounded-2xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 ${BTN}`}>
+                  <Icon name="FolderOpen" size={14} />
+                  <span>{t.openPdfBtn}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-5 lg:col-span-5">
+          <div className={`${CARD} p-5`}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">{t.yourUnderstanding}</h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{t.understandingSub}</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setWeakOnly(w => !w)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${weakOnly ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300'} ${BTN}`}>
+                  {weakOnly ? t.filterAll : t.filterWeakOnly}
+                </button>
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold tnum text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {reviewedCount}/{subject.topics.length}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2.5">
+              {visibleTopics.map(item => (
+                <div key={item.id} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-800/80 dark:bg-slate-900/50">
+                  <div className="flex items-center justify-between gap-2">
+                    <button onClick={() => setTopic(item.id, { done: !item.done })} className="flex min-w-0 items-center gap-2.5 text-left">
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${item.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
+                        {item.done && <Icon name="Check" size={12} strokeWidth={3} />}
+                      </span>
+                      <span className={`truncate text-sm font-semibold ${item.done ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100'}`}>
+                        {item.title}
+                      </span>
+                    </button>
+                    <button onClick={() => up({ topics: subject.topics.filter(x => x.id !== item.id) })} aria-label="Remove" className={`text-slate-300 hover:text-rose-500 dark:text-slate-600 ${BTN}`}>
+                      <Icon name="X" size={14} />
+                    </button>
+                  </div>
+
+                  <div className="mt-2.5 flex items-center justify-between gap-2 pl-7">
+                    <div className="flex items-center gap-1.5">
+                      {CONF_ORDER.map(level => {
+                        const active = item.conf === level;
+                        return (
+                          <button key={level} onClick={() => setConf(item.id, level)}
+                            className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${active ? CONF_STYLE[level] : 'bg-white text-slate-400 hover:text-slate-600 dark:bg-slate-800 dark:text-slate-400'} ${BTN}`}>
+                            {t[level]}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button onClick={() => setAiTopic(item)} className={`flex items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-semibold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/50 ${BTN}`}>
+                      <Icon name="Sparkles" size={12} />
+                      <span>{t.aiVisualTutor}</span>
+                    </button>
+                  </div>
+
+                  {item.summary && (
+                    <p className="mt-2 pl-7 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                      💡 {item.summary}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <input className={INPUT} placeholder={t.addTopicPlaceholder} value={newTopic} onChange={e => setNewTopic(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTopic()} />
+              <button onClick={addTopic} aria-label="Add topic" className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-white hover:bg-indigo-500 ${BTN}`}>
+                <Icon name="Plus" size={18} />
+              </button>
+            </div>
+
+            <div className="mt-2">
+              <button onClick={() => setBulkOpen(o => !o)} className={`flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400 ${BTN}`}>
+                <Icon name="ListPlus" size={13} />
+                <span>{t.bulkPasteToggle}</span>
+              </button>
+              {bulkOpen && (
+                <div className="mt-2 space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+                  <textarea rows={4} value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder={t.bulkPastePlaceholder}
+                    className="w-full resize-none rounded-xl border border-slate-200 bg-white p-2.5 text-xs leading-relaxed outline-none dark:border-slate-700 dark:bg-slate-950" />
+                  <button onClick={addBulkTopics} className={`w-full rounded-xl bg-indigo-600 py-2 text-xs font-semibold text-white hover:bg-indigo-500 ${BTN}`}>
+                    {t.bulkPasteAdd}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className={`${CARD} p-5`}>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">{t.profClues}</p>
+            <textarea rows={3} value={subject.clues} onChange={e => up({ clues: e.target.value })}
+              className="mt-2 w-full resize-none rounded-2xl border border-amber-200/80 bg-amber-50/70 p-3.5 text-xs leading-relaxed text-amber-950 outline-none focus:border-amber-400 dark:border-amber-900/60 dark:bg-amber-950/25 dark:text-amber-200" />
+          </div>
+
+          <div className={`${CARD} space-y-4 p-5`}>
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">{t.prepChecklist}</p>
+              <div className="space-y-1.5">
+                {subject.prep.map(p => (
+                  <div key={p.id} className="flex items-center gap-2.5 text-xs">
+                    <button onClick={() => up({ prep: subject.prep.map(x => x.id === p.id ? { ...x, done: !x.done } : x) })}
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${p.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 dark:border-slate-600'} ${BTN}`}>
+                      {p.done && <Icon name="Check" size={12} strokeWidth={3} />}
+                    </button>
+                    <span className={`flex-1 ${p.done ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{p.text}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2.5 flex gap-2">
+                <input className={`${INPUT} py-2 text-xs`} placeholder={t.prepPlaceholder} value={newPrep} onChange={e => setNewPrep(e.target.value)} onKeyDown={e => e.key === 'Enter' && addPrep()} />
+                <button onClick={addPrep} className={`rounded-xl bg-emerald-500 px-3 text-xs font-semibold text-white hover:bg-emerald-400 ${BTN}`}>+</button>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-slate-400">{t.specialNotes}</p>
+              <textarea rows={2} value={subject.notes} onChange={e => up({ notes: e.target.value })} placeholder={t.notesPlaceholder} className={`${INPUT} resize-none py-2.5 text-xs`} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {aiTopic && (
+        <AITutorSheet
+          subject={subject}
+          topic={aiTopic}
+          onSaveSummary={summary => setTopic(aiTopic.id, { summary })}
+          onClose={() => setAiTopic(null)}
+          lang={lang}
+          t={t}
+        />
+      )}
+
+      {showShare && (
+        <ShareCardModal subject={subject} now={now} lang={lang} t={t} onClose={() => setShowShare(false)} />
+      )}
+    </div>
+  );
+}
+
+function FocusTab({ T, subjects, onReturnStudyRoom, t }) {
+  const { dur, left, running, mode, setMode, subId, setSubId, startPause, finishNow, completedInfo, clearCompleted } = T;
+  const sub = subjects.find(s => s.id === subId) || subjects[0];
+  const activeTopicTitle = sub?.topics.find(x => !x.done)?.title || sub?.topics[0]?.title || 'Study session';
+
+  const totalSec = dur * 60;
+  const progress = totalSec > 0 ? Math.max(0, Math.min(1, (totalSec - left) / totalSec)) : 0;
+  const R = 108;
+  const C = 2 * Math.PI * R;
+  const dashOffset = C * (1 - progress);
+
+  if (completedInfo) {
+    return (
+      <div className="view mx-auto max-w-2xl py-2">
+        <div className="mb-3 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{t.completeBadge}</p>
+          <p className="mt-0.5 text-sm font-semibold text-slate-600 dark:text-slate-300">{t.completeHeadline}</p>
+        </div>
+
+        <div className={`${CARD} celebrate-pop px-6 py-8 text-center sm:px-10`}>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 ring-8 ring-emerald-50 dark:bg-emerald-950/70 dark:text-emerald-400 dark:ring-emerald-950/30">
+            <Icon name="Check" size={30} strokeWidth={2.8} />
+          </div>
+
+          <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+            {t.sessionCompleteTitle}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t.sessionCompleteSub}</p>
+
+          <div className="mx-auto mt-6 grid max-w-sm grid-cols-2 gap-6 border-y border-slate-100 py-5 dark:border-slate-800">
+            <div>
+              <div className="text-3xl font-extrabold tnum text-slate-900 dark:text-white">{completedInfo.minutes}</div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{t.minutesFocused}</div>
+            </div>
+            <div>
+              <div className="text-3xl font-extrabold tnum text-emerald-600 dark:text-emerald-400">+1</div>
+              <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{t.smallWin}</div>
+            </div>
+          </div>
+
+          <div className="mx-auto mt-5 max-w-md rounded-2xl bg-emerald-50/80 px-4 py-3.5 text-left dark:bg-emerald-950/30">
+            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">{t.restTipTitle}</p>
+            <p className="mt-0.5 text-xs text-emerald-700/80 dark:text-emerald-300/80">{t.restTipBody}</p>
+          </div>
+
+          <button onClick={() => { clearCompleted(); onReturnStudyRoom(completedInfo.subjectId); }}
+            className={`mt-6 w-full max-w-md rounded-2xl bg-indigo-600 py-3.5 text-sm font-semibold text-white shadow-[0_12px_24px_-8px_rgba(79,70,229,0.65)] hover:bg-indigo-500 ${BTN}`}>
+            {t.returnStudyRoom}
+          </button>
+        </div>
+
+        <p className="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">{t.completeFooter}</p>
+      </div>
+    );
+  }
+
+  const modeTabs = [
+    ['focus25', t.focus25, 25],
+    ['short', t.shortBreak, 5],
+    ['long', t.longBreak, 15],
+  ];
+
+  return (
+    <div className="view mx-auto max-w-2xl py-1">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">LESS NOISE. MORE CLARITY.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Just you and the next step.</p>
+        </div>
+        {subjects.length > 0 && (
+          <select value={sub?.id || ''} onChange={e => setSubId(e.target.value)} disabled={running}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200">
+            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        )}
+      </div>
+
+      <div className={`${CARD} flex flex-col items-center px-5 py-7 sm:px-10`}>
+        <div className="inline-flex rounded-full bg-slate-100 p-1 dark:bg-slate-900">
+          {modeTabs.map(([k, lbl, mins]) => (
+            <button key={k} disabled={running} onClick={() => setMode(k, mins)}
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${mode === k ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-800 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'} ${BTN}`}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+
+        <div className={`relative mt-7 h-[248px] w-[248px] ${running ? 'ring-glow' : ''}`}>
+          <svg viewBox="0 0 248 248" className="h-full w-full -rotate-90">
+            <circle cx="124" cy="124" r={R} fill="none" stroke="currentColor" strokeWidth="10" className="text-slate-100 dark:text-slate-800/90" />
+            <circle cx="124" cy="124" r={R} fill="none" stroke="#6366F1" strokeWidth="10" strokeLinecap="round"
+              strokeDasharray={C} strokeDashoffset={dashOffset} style={{ transition: 'stroke-dashoffset .35s linear' }} />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span className={`text-[10px] font-extrabold uppercase tracking-widest ${running ? 'text-emerald-500' : 'text-indigo-500'}`}>
+              {running ? t.inTheZone : t.takeYourTime}
+            </span>
+            <span className="mt-1 text-5xl font-extrabold tracking-tight tnum text-slate-900 dark:text-white">
+              {mmss(left)}
+            </span>
+            <span className="mt-1.5 text-xs text-slate-400">{t.ofMinutes(dur)}</span>
+          </div>
+        </div>
+
+        <div className="mt-5 text-center">
+          <h3 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+            {sub?.name || 'Study Focus'}
+          </h3>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            {activeTopicTitle} · Session 1 of 4
+          </p>
+        </div>
+
+        <div className="mt-6 flex items-center gap-3">
+          <button onClick={startPause}
+            className={`flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_-8px_rgba(79,70,229,0.65)] hover:bg-indigo-500 ${BTN}`}>
+            <Icon name={running ? 'Pause' : 'Play'} size={16} />
+            <span>{running ? t.pauseBtn : t.resumeBtn}</span>
+          </button>
+          <button onClick={finishNow}
+            className={`flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 ${BTN}`}>
+            <Icon name="Check" size={16} />
+            <span>{t.finishBtn}</span>
+          </button>
+        </div>
+
+        <p className="mt-5 flex items-center gap-1.5 text-xs text-slate-400">
+          <i className="block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <span>{t.distractionsOff}</span>
+        </p>
+      </div>
+
+      <p className="mt-4 text-center text-xs italic text-slate-400 dark:text-slate-500">{t.quote}</p>
+    </div>
+  );
+}
+
+function AlarmsTab({ alarms, onChange, lang, t }) {
+  const [time, setTime] = useState('07:00');
+  const [label, setLabel] = useState('');
+  const add = (tm, lb) => onChange([...alarms, { id: uid(), time: tm, label: (lb || '').trim() || 'Alarm', on: true }].sort((a, b) => a.time.localeCompare(b.time)));
+  const quick = lang === 'th'
+    ? [['06:30', 'ตื่นเตรียมสอบ'], ['19:00', 'เริ่มอ่านหนังสือ'], ['22:00', 'ทบทวนก่อนนอน']]
+    : [['06:30', 'Exam-day wake-up'], ['19:00', 'Daily study start'], ['22:00', 'Wind-down review']];
+
+  return (
+    <div className="view space-y-5">
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-xl font-extrabold tracking-tight">{t.alarmsTitle}</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t.alarmsSub}</p>
+        </div>
+        <button onClick={() => chime(1)} className={`flex items-center gap-1.5 rounded-full bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300 ${BTN}`}>
+          <Icon name="Volume2" size={14} />{t.testChime}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="space-y-3">
+          {alarms.map(a => (
+            <div key={a.id} className={`${CARD} flex items-center gap-4 p-4 transition ${a.on ? '' : 'opacity-65'}`}>
+              <div className="min-w-0 flex-1">
+                <div className="text-3xl font-extrabold leading-none tracking-tight tnum">{a.time}</div>
+                <p className="mt-1.5 truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{a.label}</p>
+              </div>
+              <button onClick={() => onChange(alarms.filter(x => x.id !== a.id))} aria-label="Delete" className={`text-slate-300 hover:text-rose-500 dark:text-slate-600 ${BTN}`}>
+                <Icon name="Trash2" size={17} />
+              </button>
+              <Toggle on={a.on} label={a.label} onChange={v => onChange(alarms.map(x => x.id === a.id ? { ...x, on: v } : x))} />
+            </div>
+          ))}
+        </div>
+
+        <div className={`${CARD} h-fit space-y-4 p-5`}>
+          <h3 className="text-base font-bold tracking-tight">{t.newAlarm}</h3>
+          <div className="grid grid-cols-[120px_1fr] gap-3">
+            <div><Label>{t.timeLabel}</Label><input type="time" className={INPUT} value={time} onChange={e => setTime(e.target.value)} /></div>
+            <div><Label>{t.labelField}</Label><input className={INPUT} placeholder={t.alarmPlaceholder} value={label} onChange={e => setLabel(e.target.value)} /></div>
+          </div>
+          <button disabled={!time} onClick={() => { add(time, label); setLabel(''); }} className={`w-full rounded-2xl bg-indigo-600 py-3.5 text-sm font-semibold text-white disabled:opacity-40 ${BTN}`}>
+            {t.addAlarmBtn}
+          </button>
+          <div>
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">{t.quickAdd}</p>
+            <div className="flex flex-wrap gap-2">
+              {quick.map(([tm, lb]) => (
+                <button key={lb} onClick={() => add(tm, lb)} className={`rounded-full bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${BTN}`}>
+                  {tm} · {lb}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExamModal({ initial, onSave, onDelete, onClose, t }) {
+  const def = (() => { const d = addDays(new Date(), 14); d.setHours(9, 0, 0, 0); return toLocalInput(d); })();
+  const [name, setName] = useState(initial ? initial.name : '');
+  const [examLabel, setExamLabel] = useState(initial ? (initial.examLabel || 'Midterm') : 'Midterm');
+  const [when, setWhen] = useState(initial ? initial.examAt : def);
+  const [confirm, setConfirm] = useState(false);
+  const valid = name.trim() && when;
+
+  return (
+    <Sheet title={initial ? t.editExamModal : t.addExamModal} onClose={onClose}>
+      <div className="space-y-4">
+        <div><Label>{t.subjectNameLabel}</Label><input autoFocus className={INPUT} placeholder="e.g. Systems Physiology" value={name} onChange={e => setName(e.target.value)} /></div>
+        <div><Label>Tag</Label><input className={INPUT} value={examLabel} onChange={e => setExamLabel(e.target.value)} /></div>
+        <div><Label>{t.examDateLabel}</Label><input type="datetime-local" className={INPUT} value={when} onChange={e => setWhen(e.target.value)} /></div>
+        <button disabled={!valid} onClick={() => onSave({ name: name.trim(), examLabel: examLabel.trim() || 'Exam', examAt: when })}
+          className={`w-full rounded-2xl bg-indigo-600 py-3.5 text-sm font-semibold text-white disabled:opacity-40 ${BTN}`}>
+          {initial ? t.saveChanges : t.addExamBtn}
+        </button>
+        {initial && (
+          <button onClick={() => confirm ? onDelete() : setConfirm(true)} className={`w-full rounded-2xl py-3 text-sm font-semibold ${confirm ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300'} ${BTN}`}>
+            {confirm ? t.deleteConfirm : t.deleteSubject}
+          </button>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+function SessionModal({ subjects, date, onSave, onClose, lang, t }) {
+  const [subjectId, setSubjectId] = useState(subjects[0]?.id || '');
+  const [title, setTitle] = useState('');
+  const [minutes, setMinutes] = useState(25);
+  const label = new Date(date + 'T00:00:00').toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+
+  if (!subjects.length) return <Sheet title={t.addSessionModal} onClose={onClose}><Empty icon="BookOpen" title={t.noExamsTitle} text={t.noExamsText} /></Sheet>;
+
+  return (
+    <Sheet title={t.addSessionModal} onClose={onClose}>
+      <p className="-mt-2 mb-4 text-xs text-slate-500">{t.plannedFor} {label}</p>
+      <div className="space-y-4">
+        <div><Label>Subject</Label><select className={INPUT} value={subjectId} onChange={e => setSubjectId(e.target.value)}>{subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+        <div><Label>{t.whatToStudy}</Label><input autoFocus className={INPUT} placeholder="e.g. The cardiac cycle" value={title} onChange={e => setTitle(e.target.value)} /></div>
+        <div>
+          <Label>{t.dailySessionMin}</Label>
+          <div className="flex gap-2">
+            {[25, 45, 60, 90].map(m => (
+              <button key={m} onClick={() => setMinutes(m)} className={`flex-1 rounded-2xl py-2.5 text-xs font-bold ${minutes === m ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'} ${BTN}`}>{m}m</button>
+            ))}
+          </div>
+        </div>
+        <button disabled={!title.trim()} onClick={() => onSave({ id: uid(), date, subjectId, title: title.trim(), minutes, done: false })}
+          className={`w-full rounded-2xl bg-indigo-600 py-3.5 text-sm font-semibold text-white disabled:opacity-40 ${BTN}`}>{t.addToPlanBtn}</button>
+      </div>
+    </Sheet>
+  );
+}
+
+function AutoPlanModal({ onGenerate, onClose, t }) {
+  const [sessionMin, setSessionMin] = useState(25);
+  const [maxPerDay, setMaxPerDay] = useState(2);
+
+  return (
+    <Sheet title={t.autoPlanTitle} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="rounded-2xl bg-emerald-50 p-3.5 text-xs leading-relaxed text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">{t.autoPlanDesc}</p>
+        <div>
+          <Label>{t.dailySessionMin}</Label>
+          <div className="flex gap-2">
+            {[25, 45, 60].map(m => (
+              <button key={m} onClick={() => setSessionMin(m)} className={`flex-1 rounded-2xl py-2.5 text-xs font-bold ${sessionMin === m ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'} ${BTN}`}>{m}m</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label>{t.maxSessionsDay}</Label>
+          <div className="flex gap-2">
+            {[1, 2, 3].map(n => (
+              <button key={n} onClick={() => setMaxPerDay(n)} className={`flex-1 rounded-2xl py-2.5 text-xs font-bold ${maxPerDay === n ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'} ${BTN}`}>{n}</button>
+            ))}
+          </div>
+        </div>
+        <button onClick={() => onGenerate(sessionMin, maxPerDay)} className={`w-full rounded-2xl bg-emerald-600 py-3.5 text-sm font-semibold text-white hover:bg-emerald-500 ${BTN}`}>
+          {t.generatePlanBtn}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+function SettingsModal({ data, onUpdateGoal, onImport, onReset, onClose, t }) {
+  const [confirm, setConfirm] = useState(false);
+  const fileRef = useRef(null);
+
+  const exportJson = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sprint-backup-${ymd(new Date())}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importJson = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (parsed && Array.isArray(parsed.subjects)) {
+          onImport(parsed);
+          onClose();
+        }
+      } catch (err) {}
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <Sheet title={t.settingsTitle} onClose={onClose}>
+      <div className="space-y-4">
+        <div>
+          <Label>{t.dailyGoalLabel}</Label>
+          <div className="flex gap-2">
+            {[60, 90, 120, 180].map(m => (
+              <button key={m} onClick={() => onUpdateGoal(m)} className={`flex-1 rounded-2xl py-2.5 text-xs font-bold ${data.dailyGoalMin === m ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'} ${BTN}`}>{m}m</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button onClick={exportJson} className={`flex items-center justify-center gap-2 rounded-2xl bg-slate-100 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 ${BTN}`}>
+            <Icon name="Download" size={15} />{t.exportBackup}
+          </button>
+          <button onClick={() => fileRef.current?.click()} className={`flex items-center justify-center gap-2 rounded-2xl bg-slate-100 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 ${BTN}`}>
+            <Icon name="Upload" size={15} />{t.importBackup}
+          </button>
+          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={importJson} />
+        </div>
+
+        <div className="flex items-start gap-3 rounded-2xl bg-slate-50 p-3.5 dark:bg-slate-900">
+          <Icon name="HardDrive" size={18} className="mt-0.5 shrink-0 text-slate-400" />
+          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{t.localNotice}</p>
+        </div>
+
+        <button onClick={() => confirm ? onReset() : setConfirm(true)} className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-xs font-semibold ${confirm ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300'} ${BTN}`}>
+          <Icon name="RotateCcw" size={15} />{confirm ? t.resetConfirm : t.resetDemo}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
+function Banner({ banner, onClose, t }) {
+  if (!banner) return null;
+  return (
+    <div className="drop-in fixed inset-x-4 top-4 z-50 mx-auto max-w-md">
+      <div className="flex items-center gap-3 rounded-3xl bg-slate-900 p-4 text-white shadow-2xl ring-1 ring-white/10">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500">
+          <Icon name={banner.icon || 'Bell'} size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold">{banner.title}</p>
+          <p className="truncate text-xs text-slate-300">{banner.text}</p>
+        </div>
+        <button onClick={onClose} className={`rounded-full bg-white/15 px-3.5 py-2 text-xs font-semibold ${BTN}`}>{t.dismiss}</button>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [data, setData] = useState(loadData);
+  const [now, setNow] = useState(new Date());
+  const [tab, setTab] = useState('overview');
+  const [selDate, setSelDate] = useState(ymd(new Date()));
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [modal, setModal] = useState(null);
+  const [banner, setBanner] = useState(null);
+
+  const [mode, setModeState] = useState('focus25');
+  const [dur, setDur] = useState(25);
+  const [left, setLeft] = useState(25 * 60);
+  const [running, setRunning] = useState(false);
+  const [focusSubId, setFocusSubId] = useState(null);
+  const [completedInfo, setCompletedInfo] = useState(null);
+  const endRef = useRef(0);
+
+  const isDark = data.theme === 'dark';
+  const lang = data.lang || 'th';
+  const t = DICT[lang] || DICT.th;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDark) root.classList.add('dark');
+    else root.classList.remove('dark');
+  }, [isDark]);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORE, JSON.stringify(data)); } catch (e) {}
+  }, [data]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const unlock = () => { getCtx(); window.removeEventListener('pointerdown', unlock); };
+    window.addEventListener('pointerdown', unlock);
+    return () => window.removeEventListener('pointerdown', unlock);
+  }, []);
+
+  const lastAlarmKey = useRef(ymd(new Date()) + `${pad(new Date().getHours())}:${pad(new Date().getMinutes())}`);
+  useEffect(() => {
+    const hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const key = ymd(now) + hm;
+    if (lastAlarmKey.current === key) return;
+    lastAlarmKey.current = key;
+    const hit = data.alarms.filter(a => a.on && a.time === hm);
+    if (hit.length) {
+      chime(3);
+      setBanner({ icon: 'Bell', title: `Alarm · ${hm}`, text: hit.map(a => a.label).join(' · ') });
+    }
+  }, [now, data.alarms]);
+
+  const activeSubId = data.subjects.find(s => s.id === focusSubId)?.id || data.activeStudyId || data.subjects[0]?.id || null;
+
+  const logMinutes = (mins, sid) => {
+    if (mins < 1 || !sid) return;
+    setData(d => ({
+      ...d,
+      subjects: d.subjects.map(s => s.id === sid ? { ...s, loggedMin: (s.loggedMin || 0) + mins } : s),
+      focusLog: [...d.focusLog, { id: uid(), subjectId: sid, date: ymd(new Date()), minutes: mins }],
+    }));
+  };
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((endRef.current - Date.now()) / 1000));
+      setLeft(rem);
+      if (rem <= 0) {
+        clearInterval(id);
+        setRunning(false);
+        chime(2);
+        if (mode === 'focus25') {
+          logMinutes(dur, activeSubId);
+          setCompletedInfo({ minutes: dur, subjectId: activeSubId });
+        }
+        setLeft(dur * 60);
+      }
+    }, 250);
+    return () => clearInterval(id);
+  }, [running, dur, mode, activeSubId]);
+
+  const T = {
+    dur, left, running, mode,
+    subId: activeSubId,
+    setSubId: sid => setFocusSubId(sid),
+    setMode: (mKey, mins) => {
+      setRunning(false);
+      setModeState(mKey);
+      setDur(mins);
+      setLeft(mins * 60);
+    },
+    startPause: () => {
+      getCtx();
+      if (running) setRunning(false);
+      else {
+        endRef.current = Date.now() + left * 1000;
+        setRunning(true);
+      }
+    },
+    resetTimer: () => { setRunning(false); setLeft(dur * 60); },
+    finishNow: () => {
+      const elapsedMin = Math.max(1, Math.round((dur * 60 - left) / 60));
+      setRunning(false);
+      setLeft(dur * 60);
+      if (mode === 'focus25') {
+        logMinutes(elapsedMin, activeSubId);
+        setCompletedInfo({ minutes: elapsedMin, subjectId: activeSubId });
+      }
+    },
+    completedInfo,
+    clearCompleted: () => setCompletedInfo(null),
+  };
+
+  const generateSmartPlan = (sessionMin, maxPerDay) => {
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const upcoming = [...data.subjects]
+      .filter(s => new Date(s.examAt) > todayStart)
+      .sort((a, b) => new Date(a.examAt) - new Date(b.examAt));
+
+    const existing = new Set(data.sessions.map(s => `${s.subjectId}:${s.title}`));
+    const counts = {};
+    data.sessions.forEach(s => { counts[s.date] = (counts[s.date] || 0) + 1; });
+    const confRank = { weak: 0, okay: 1, solid: 2 };
+    const created = [];
+
+    upcoming.forEach(sub => {
+      const examDay = new Date(sub.examAt); examDay.setHours(0, 0, 0, 0);
+      const daysUntil = Math.max(1, Math.round((examDay - todayStart) / 864e5));
+      const usableDays = Math.max(1, daysUntil - 1);
+
+      const pending = [...sub.topics]
+        .filter(item => !item.done)
+        .sort((a, b) => (confRank[a.conf] ?? 1) - (confRank[b.conf] ?? 1));
+
+      let cursor = 0;
+      pending.forEach(topic => {
+        const key = `${sub.id}:${topic.title}`;
+        if (existing.has(key)) return;
+        for (let attempt = 0; attempt < usableDays * 2; attempt++) {
+          const offset = (cursor + attempt) % usableDays;
+          const dateStr = ymd(addDays(todayStart, offset));
+          if ((counts[dateStr] || 0) < maxPerDay) {
+            counts[dateStr] = (counts[dateStr] || 0) + 1;
+            cursor = offset + 1;
+            existing.add(key);
+            created.push({ id: uid(), date: dateStr, subjectId: sub.id, title: topic.title, minutes: sessionMin, done: false });
+            break;
+          }
+        }
+      });
+    });
+
+    if (created.length) {
+      setData(d => ({ ...d, sessions: [...d.sessions, ...created] }));
+    }
+    setModal(null);
+    setBanner({ icon: 'Sparkles', title: t.autoPlanBtn, text: t.autoPlanSuccess(created.length) });
+  };
+
+  const openStudyRoom = sid => {
+    setData(d => ({ ...d, activeStudyId: sid }));
+    setTab('study');
+  };
+
+  const goFocusWith = (sid, mins = 25) => {
+    if (sid) setFocusSubId(sid);
+    setCompletedInfo(null);
+    setRunning(false);
+    setModeState('focus25');
+    setDur(mins);
+    setLeft(mins * 60);
+    setTab('focus');
+  };
+
+  const updateSubject = (id, patch) => setData(d => ({ ...d, subjects: d.subjects.map(s => s.id === id ? { ...s, ...patch } : s) }));
+  const toggleSession = id => setData(d => ({ ...d, sessions: d.sessions.map(s => s.id === id ? { ...s, done: !s.done } : s) }));
+  const deleteSession = id => setData(d => ({ ...d, sessions: d.sessions.filter(s => s.id !== id) }));
+
+  const navItems = [
+    ['overview', t.navOverview],
+    ['study', t.navStudy],
+    ['focus', t.navFocus],
+    ['alarms', t.navAlarms],
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 dark:bg-[#090D16] dark:text-slate-100 transition-colors duration-300">
+      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/85 backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#090D16]/85">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex items-center gap-6">
+            <button onClick={() => setTab('overview')} className={`flex items-center gap-2 text-left ${BTN}`}>
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
+                <Icon name="Zap" size={15} />
+              </span>
+              <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">{t.brand}</span>
+            </button>
+
+            <nav className="hidden items-center gap-1 md:flex">
+              {navItems.map(([k, lbl]) => {
+                const active = tab === k;
+                return (
+                  <button key={k} onClick={() => setTab(k)}
+                    className={`rounded-xl px-3.5 py-1.5 text-sm font-semibold transition ${active ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/70 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-slate-200'} ${BTN}`}>
+                    {lbl}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button onClick={() => setData(d => ({ ...d, theme: isDark ? 'light' : 'dark' }))}
+              className={`flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 ${BTN}`}>
+              <Icon name={isDark ? 'Moon' : 'Sun'} size={13} className="text-indigo-500" />
+              <span>{isDark ? 'Midnight' : 'Light'}</span>
+            </button>
+
+            <button onClick={() => setData(d => ({ ...d, lang: lang === 'en' ? 'th' : 'en' }))}
+              className={`rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 ${BTN}`}>
+              {lang === 'en' ? 'EN / TH' : 'TH / EN'}
+            </button>
+
+            <button onClick={() => setModal('settings')} aria-label="Settings"
+              className={`flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 ${BTN}`}>
+              <Icon name="Settings" size={15} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-1.5 no-scrollbar dark:border-slate-800/80 md:hidden">
+          {navItems.map(([k, lbl]) => (
+            <button key={k} onClick={() => setTab(k)}
+              className={`shrink-0 rounded-full px-3.5 py-1 text-xs font-bold ${tab === k ? 'bg-indigo-600 text-white' : 'text-slate-500 dark:text-slate-400'} ${BTN}`}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        {tab === 'overview' && (
+          <OverviewTab
+            data={data}
+            now={now}
+            selDate={selDate}
+            setSelDate={setSelDate}
+            weekOffset={weekOffset}
+            setWeekOffset={setWeekOffset}
+            onOpenStudyRoom={openStudyRoom}
+            onGoFocus={goFocusWith}
+            onToggleSession={toggleSession}
+            onDeleteSession={deleteSession}
+            onOpenAddSession={() => setModal('session')}
+            onOpenAutoPlan={() => setModal('autoPlan')}
+            onViewAllSubjects={() => setTab('study')}
+            lang={lang}
+            t={t}
+          />
+        )}
+
+        {tab === 'study' && (
+          <StudyRoomTab
+            subjects={data.subjects}
+            activeStudyId={activeSubId}
+            setActiveStudyId={sid => setData(d => ({ ...d, activeStudyId: sid }))}
+            onUpdateSubject={updateSubject}
+            onOpenAddExam={() => setModal('addExam')}
+            onGoFocus={goFocusWith}
+            now={now}
+            lang={lang}
+            t={t}
+          />
+        )}
+
+        {tab === 'focus' && (
+          <FocusTab
+            T={T}
+            subjects={data.subjects}
+            onReturnStudyRoom={sid => openStudyRoom(sid || activeSubId)}
+            t={t}
+          />
+        )}
+
+        {tab === 'alarms' && (
+          <AlarmsTab
+            alarms={data.alarms}
+            onChange={alarms => setData(d => ({ ...d, alarms }))}
+            lang={lang}
+            t={t}
+          />
+        )}
+      </main>
+
+      {modal === 'addExam' && (
+        <ExamModal onClose={() => setModal(null)} t={t} onSave={({ name, examLabel, examAt }) => {
+          const s = { id: uid(), name, examLabel, examAt, color: PALETTE[data.subjects.length % PALETTE.length], loggedMin: 0, topics: [], clues: '', prep: [], notes: '' };
+          setData(d => ({ ...d, subjects: [...d.subjects, s], activeStudyId: s.id }));
+          setModal(null);
+          setTab('study');
+        }} />
+      )}
+
+      {modal === 'session' && (
+        <SessionModal subjects={data.subjects} date={selDate} onClose={() => setModal(null)} lang={lang} t={t}
+          onSave={s => { setData(d => ({ ...d, sessions: [...d.sessions, s] })); setModal(null); }} />
+      )}
+
+      {modal === 'autoPlan' && (
+        <AutoPlanModal onClose={() => setModal(null)} onGenerate={generateSmartPlan} t={t} />
+      )}
+
+      {modal === 'settings' && (
+        <SettingsModal
+          data={data}
+          onUpdateGoal={m => setData(d => ({ ...d, dailyGoalMin: m }))}
+          onImport={imported => setData(d => ({ ...d, ...imported }))}
+          onClose={() => setModal(null)}
+          t={t}
+          onReset={() => {
+            setRunning(false); setCompletedInfo(null); setLeft(dur * 60);
+            setData(seedData()); setModal(null);
+            setBanner({ icon: 'RotateCcw', title: t.resetDemo, text: 'OK' });
+          }}
+        />
+      )}
+
+      <Banner banner={banner} onClose={() => setBanner(null)} t={t} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
